@@ -53,6 +53,21 @@ a:visited {
   height: 5.2rem;
   align-self: center;
   margin-bottom: 4rem;
+  cursor: pointer;
+}
+.reset__btn {
+  position: absolute;
+  top: 4rem;
+  height: 5.2rem;
+  width: 5.5rem;
+  align-self: flex-end;
+  margin-bottom: 4rem;
+  border: none;
+  background: none;
+  color: var(--color-light--2);
+  text-transform: uppercase;
+  font-weight: bold;
+  cursor: pointer;
 }
 
 .workouts {
@@ -87,7 +102,7 @@ a:visited {
 .workout__title {
   font-size: 1.7rem;
   font-weight: 600;
-  grid-column: 1 / -1;
+  grid-column: 1 / 5;
 }
 
 .workout__details {
@@ -111,6 +126,18 @@ a:visited {
   color: var(--color-light--1);
   text-transform: uppercase;
   font-weight: 800;
+}
+.workout__remove {
+  grid-row: 1;
+  grid-column: -1;
+  padding: 0.7rem;
+  background: none;
+  border: none;
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: var(--color-light--2);
+  cursor: pointer;
+  z-index: 100;
 }
 
 .form {

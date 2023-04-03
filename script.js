@@ -5,10 +5,11 @@ class Workout {
   id = (Date.now() + ' ').slice(-10);
   // clicks = 0;
 
-  constructor(coords, distance, duration) {
+  constructor(coords, distance, duration, city) {
     this.coords = coords; // [lat, lng]
     this.distance = distance; // in km
     this.duration = duration; // in min
+    this.city = city;
   }
 
   _setDescription() {
@@ -17,7 +18,7 @@ class Workout {
 
     this.description = `${this.type[0].toUpperCase()}${this.type.slice(1)} on ${
       months[this.date.getMonth()]
-    } ${this.date.getDate()}`;
+    } ${this.date.getDate()} in ${this.city}`;
   }
 
   // click() {
@@ -26,8 +27,8 @@ class Workout {
 }
 class Running extends Workout {
   type = 'running';
-  constructor(coords, distance, duration, cadence) {
-    super(coords, distance, duration);
+  constructor(coords, distance, duration, cadence, city) {
+    super(coords, distance, duration, city);
     this.cadence = cadence;
     this.calcPace();
     this._setDescription();
@@ -42,8 +43,8 @@ class Running extends Workout {
 
 class Cycling extends Workout {
   type = 'cycling';
-  constructor(coords, distance, duration, elevationGain) {
-    super(coords, distance, duration);
+  constructor(coords, distance, duration, elevationGain, city) {
+    super(coords, distance, duration, city);
     this.elevationGain = elevationGain;
     this.calcSpeed();
     this._setDescription();
@@ -62,12 +63,14 @@ const inputDistance = document.querySelector('.form__input--distance');
 const inputDuration = document.querySelector('.form__input--duration');
 const inputCadence = document.querySelector('.form__input--cadence');
 const inputElevation = document.querySelector('.form__input--elevation');
-
+const resetApp = document.querySelector('.reset__btn');
+const logo = document.querySelector('.logo');
 ////////////////////////////
 // APPLICATION ARCHITECTURE
 class App {
   #map;
-  #mapZoomLevel = 15;
+  #currCoords;
+  #mapZoomLevel = 13;
   #mapEvent;
   #workouts = [];
 
@@ -82,6 +85,8 @@ class App {
     form.addEventListener('submit', this._newWorkout.bind(this));
     inputType.addEventListener('change', this._toggleElevationField);
     containerWorkouts.addEventListener('click', this._moveToPopup.bind(this));
+    logo.addEventListener('click', this._showAllMarks.bind(this));
+    resetApp.addEventListener('click', this.reset);
   }
 
   _getPosition() {
@@ -98,7 +103,7 @@ class App {
     const { latitude } = position.coords;
     const { longitude } = position.coords;
     const coords = [latitude, longitude];
-
+    this.#currCoords = coords;
     this.#map = L.map('map').setView(coords, this.#mapZoomLevel);
 
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -112,6 +117,41 @@ class App {
     this.#workouts.forEach(work => {
       this._renderWorkoutMarker(work);
     });
+
+    this._getToUserCoords();
+    // this._showAllMarks();
+  }
+
+  _getToUserCoords() {
+    this.#map.setView(this.#currCoords, this.#mapZoomLevel);
+  }
+
+  _showAllMarks() {
+    const position = [];
+    const marksArray = this.#workouts;
+
+    const collectCoords = function () {
+      for (let i = 0; i < marksArray.length; i++) {
+        position.push(marksArray[i].coords);
+      }
+    };
+    collectCoords();
+    console.log(position);
+   
+    const boundsSW = L.latLngBounds(position).getSouthWest();
+    const boundsNE = L.latLngBounds(position).getNorthEast();
+    const boundsSE = L.latLngBounds(position).getSouthEast();
+    const boundsNW = L.latLngBounds(position).getNorthWest();
+
+    let bounds = L.latLngBounds(boundsSW, boundsSW);
+    bounds.extend(boundsSE);
+    bounds.extend(boundsNW);
+    bounds.extend(boundsNE);
+
+    
+   
+    bounds = bounds.pad(0.125);
+    this.#map.fitBounds(bounds);
   }
 
   _showForm(mapE) {
@@ -137,60 +177,70 @@ class App {
     inputCadence.closest('.form__row').classList.toggle('form__row--hidden');
   }
 
-  _newWorkout(e) {
-    const validInputs = (...inputs) =>
-      inputs.every(inp => Number.isFinite(inp));
-    const allPositive = (...inputs) => inputs.every(inp => inp > 0);
+  async _newWorkout(e) {
+    try {
+      const validInputs = (...inputs) =>
+        inputs.every(inp => Number.isFinite(inp));
+      const allPositive = (...inputs) => inputs.every(inp => inp > 0);
 
-    e.preventDefault();
+      e.preventDefault();
 
-    // Get date from form
+      // Get date from form
 
-    const type = inputType.value;
-    const distance = +inputDistance.value;
-    const duration = +inputDuration.value;
-    const { lat, lng } = this.#mapEvent.latlng;
-    let workout;
+      const type = inputType.value;
+      const distance = +inputDistance.value;
+      const duration = +inputDuration.value;
+      const { lat, lng } = this.#mapEvent.latlng;
+      let workout;
 
-    // If workout running, create runnning object
-    if (type === 'running') {
-      const cadence = +inputCadence.value;
-      // Check if data is valid
-      if (
-        // !Number.isFinite(distance) ||
-        // !Number.isFinite(duration) ||
-        // !Number.isFinite(cadence)
-        !validInputs(distance, duration, cadence) ||
-        !allPositive(distance, duration, cadence)
-      )
-        return alert('Inputs have to be positive numbers');
-      workout = new Running([lat, lng], distance, duration, cadence);
+      const res = await fetch(
+        `https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lng}&apiKey=b1fc7264a944475eaff72ff639a908d7`
+      );
+      const data = await res.json();
+      const city = data.features[0].properties.city;
+
+      // If workout running, create runnning object
+      if (type === 'running') {
+        const cadence = +inputCadence.value;
+        // Check if data is valid
+        if (
+          // !Number.isFinite(distance) ||
+          // !Number.isFinite(duration) ||
+          // !Number.isFinite(cadence)
+          !validInputs(distance, duration, cadence) ||
+          !allPositive(distance, duration, cadence)
+        )
+          return alert('Inputs have to be positive numbers');
+        workout = new Running([lat, lng], distance, duration, cadence, city);
+      }
+
+      // If workout cycling, create runnning object
+      if (type === 'cycling') {
+        const elevation = +inputElevation.value;
+
+        if (
+          !validInputs(distance, duration, elevation) ||
+          !allPositive(distance, duration)
+        )
+          return alert('Inputs have to be positive numbers');
+        workout = new Cycling([lat, lng], distance, duration, elevation, city);
+      }
+
+      // Add new object to workout array
+      this.#workouts.push(workout);
+
+      // Render workout on map as a marker
+      this._renderWorkoutMarker(workout);
+      // Render workout on list
+      this._renderWorkout(workout);
+      // Hide form + clear inputs
+      this._hideForm();
+
+      // Set local storage for all workouts
+      this._setLocalStorage();
+    } catch (err) {
+      console.log(err);
     }
-
-    // If workout cycling, create runnning object
-    if (type === 'cycling') {
-      const elevation = +inputElevation.value;
-
-      if (
-        !validInputs(distance, duration, elevation) ||
-        !allPositive(distance, duration)
-      )
-        return alert('Inputs have to be positive numbers');
-      workout = new Cycling([lat, lng], distance, duration, elevation);
-    }
-
-    // Add new object to workout array
-    this.#workouts.push(workout);
-
-    // Render workout on map as a marker
-    this._renderWorkoutMarker(workout);
-    // Render workout on list
-    this._renderWorkout(workout);
-    // Hide form + clear inputs
-    this._hideForm();
-
-    // Set local storage for all workouts
-    this._setLocalStorage();
   }
 
   _renderWorkoutMarker(workout) {
@@ -213,6 +263,7 @@ class App {
   _renderWorkout(workout) {
     let html = `
     <li class="workout workout--${workout.type}" data-id="${workout.id}">
+        <button class="workout__remove"> X </button>
         <h2 class="workout__title"> ${workout.description}</h2>
         <div class="workout__details">
           <span class="workout__icon">${
@@ -265,10 +316,10 @@ class App {
     const workout = this.#workouts.find(
       work => work.id === workoutEl.dataset.id
     );
-    this.#map.setView(workout.coords, this.#mapZoomLevel, {
-      aniamte: true,
+    this.#map.setView(workout.coords, this.#mapZoomLevel + 2, {
+      animate: true,
       pan: {
-        duration: 1,
+        duration: 0.5,
       },
     });
 
@@ -297,5 +348,4 @@ class App {
     location.reload();
   }
 }
-
 const app = new App();
