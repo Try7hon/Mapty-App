@@ -130,14 +130,14 @@ class App {
     const position = [];
     const marksArray = this.#workouts;
 
-    const collectCoords = function () {
-      for (let i = 0; i < marksArray.length; i++) {
-        position.push(marksArray[i].coords);
-      }
+    const collectCoords = () => {
+      marksArray.forEach(mark => {
+        position.push(mark.coords);
+      });
     };
+
     collectCoords();
-    console.log(position);
-   
+
     const boundsSW = L.latLngBounds(position).getSouthWest();
     const boundsNE = L.latLngBounds(position).getNorthEast();
     const boundsSE = L.latLngBounds(position).getSouthEast();
@@ -148,9 +148,7 @@ class App {
     bounds.extend(boundsNW);
     bounds.extend(boundsNE);
 
-    
-   
-    bounds = bounds.pad(0.125);
+    bounds = bounds.pad(0.1);
     this.#map.fitBounds(bounds);
   }
 
